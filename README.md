@@ -1,10 +1,10 @@
-# 📱 Mobile Invoice OCR
+#  Mobile Invoice OCR
 
 A comprehensive web-based tool for delivery teams to process invoice images using OCR (Optical Character Recognition), manage daily deliveries, capture proof of delivery photos, collect digital signatures, and export data for reporting.
 
-## ✨ Features
+##  Features
 
-### 🧠 **Advanced OCR Processing**
+###  **Advanced OCR Processing**
 
 - **Tesseract.js Integration**: Client-side OCR processing powered by Tesseract.js
 - **Multi-Image Upload**: Process multiple invoice images at once
@@ -32,21 +32,21 @@ Interactive spreadsheet-style table with 9 columns:
 8. **Notes**: Free-form text for driver remarks
 9. **Actions**: View/Delete controls
 
-### 📸 **Photo Capture**
+###  **Photo Capture**
 
 - **Camera Access**: Direct camera integration for mobile devices
 - **POD Photos**: Capture proof of delivery images for each invoice
 - **Image Preview**: Click to expand any image to full size
 - **Local Storage**: Images stored as base64 data URLs
 
-### ✍️ **Digital Signature**
+###  **Digital Signature**
 
 - **Canvas-Based**: Smooth signature capture on touchscreens
 - **Multi-Device Support**: Works on mobile, tablet, and desktop
 - **Touch Optimized**: Prevents accidental scrolling during signing
 - **Clear & Save**: Easy to clear and recapture signatures
 
-### 📤 **Export & Share**
+###  **Export & Share**
 
 - **CSV Export**: Standard comma-separated values
 - **Excel Export**: Tab-separated format for Excel
@@ -54,14 +54,14 @@ Interactive spreadsheet-style table with 9 columns:
 - **Email/Message**: Share reports via device's share options
 - **Copy to Clipboard**: Quick copy for pasting elsewhere
 
-### 📱 **Mobile-First Design**
+###  **Mobile-First Design**
 
 - **Responsive Layout**: Optimized for all screen sizes
 - **Touch-Friendly**: Large buttons and touch targets
 - **Offline Capable**: Works without constant internet connection
 - **Fast Performance**: Optimized for mobile devices
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -140,7 +140,7 @@ Interactive spreadsheet-style table with 9 columns:
 - Click **"Clear Log"** at end of day to reset the table
 - Export data first to avoid losing records!
 
-## 🎨 Column Details
+##  Column Details
 
 ### Invoice Number
 
@@ -204,7 +204,7 @@ Interactive spreadsheet-style table with 9 columns:
 - **👁️ View**: Expand invoice image to full screen
 - **🗑️ Delete**: Remove record from table
 
-## 🛠️ Technical Details
+##  Technical Details
 
 ### Tech Stack
 
@@ -272,7 +272,7 @@ Edit `Server.py` for custom configuration:
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Change max file size
 ```
 
-## 📱 Mobile Optimization
+##  Mobile Optimization
 
 ### Access from Mobile Device
 
@@ -327,11 +327,11 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Change max file size
 - **Firewall**: Allow port 5000 through firewall
 - **Dependencies**: Run `pip install -r requirements.txt`
 
-## 📝 License
+##  License
 
 This project is provided as-is for delivery team operations. Modify and customize as needed for your business requirements.
 
-## 🤝 Support
+##  Support
 
 For issues or questions:
 
@@ -340,7 +340,7 @@ For issues or questions:
 3. Check Python server output
 4. Verify all dependencies are installed
 
-## 🎯 Future Enhancements
+##  Future Enhancements
 
 Potential improvements:
 

@@ -18,7 +18,7 @@ A comprehensive web-based tool for delivery teams to process invoice images usin
   - Items/Appliances
   - Date and Total
 
-### 📊 **Daily Delivery Log**
+###  **Daily Delivery Log**
 
 Interactive spreadsheet-style table with 9 columns:
 
@@ -105,7 +105,7 @@ Interactive spreadsheet-style table with 9 columns:
    - Local: Open <http://localhost:5000> in your browser
    - Mobile: Use your computer's IP address (e.g., <http://192.168.1.100:5000>)
 
-## 📖 Usage Guide
+##  Usage Guide
 
 ### Step 1: Upload Invoices
 
@@ -355,4 +355,4 @@ Potential improvements:
 
 ---
 
-## Built for delivery teams who need fast, reliable invoice processing on the go! 🚚📦
+

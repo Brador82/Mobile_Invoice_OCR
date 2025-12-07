@@ -283,12 +283,8 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # Change max file size
    ipconfig
    ```
 
-   Look for "IPv4 Address" (e.g., 192.168.1.100)
-3. On mobile device, open browser and navigate to:
-
-   ```text
-   http://YOUR_IP_ADDRESS:5000
-   ```
+   
+3. On a mobile device, open browser and navigate to: http:\\localhost:5000
 
 ### Tips for Best Mobile Experience
 

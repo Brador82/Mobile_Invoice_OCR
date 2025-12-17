@@ -2,6 +2,26 @@
 
 A comprehensive web-based tool for delivery teams to process invoice images using OCR (Optical Character Recognition), manage daily deliveries, capture proof of delivery photos, collect digital signatures, and export data for reporting.
 
+## 📦 Two Package Variations Available
+
+This repository now contains **two different versions** of the application:
+
+1. **[Mobile_OCR_Auto](./Mobile_OCR_Auto/)** - Automatic OCR processing with Tesseract.js
+   - ⚡ Automatic text extraction from invoice images
+   - 🤖 Best for clean, printed invoices
+   - 📦 Batch processing capabilities
+   - 🔧 Optional Python backend for enhanced accuracy
+
+2. **[Mobile_OCR_Manual](./Mobile_OCR_Manual/)** - Manual data entry without OCR
+   - ✍️ Direct manual entry in editable table cells
+   - 🚀 Zero dependencies, lightweight
+   - 💪 100% accuracy through manual entry
+   - 📱 Perfect for handwritten or poor-quality invoices
+
+**→ See [PACKAGES.md](./PACKAGES.md) for a detailed comparison and selection guide.**
+
+---
+
 ##  Features
 
 ###  **Advanced OCR Processing**
@@ -63,32 +83,66 @@ Interactive spreadsheet-style table with 9 columns:
 
 ##  Getting Started
 
+> **Note**: The files in the root directory (Index.html, App.js, etc.) represent the **original version** with OCR capabilities. For organized deployment, use the packaged versions in `Mobile_OCR_Auto/` or `Mobile_OCR_Manual/` directories.
+
+### Quick Start
+
+**Choose Your Package:**
+- Navigate to either `Mobile_OCR_Auto/` or `Mobile_OCR_Manual/` directory
+- Each contains a complete standalone application
+- See each package's README for specific instructions
+- See [PACKAGES.md](./PACKAGES.md) to help you choose
+
 ### Prerequisites
 
-**For Python Backend:**
-
-- Python 3.7+
-- Tesseract OCR installed on system
-- pip (Python package manager)
-
-**For Client-Side:**
-
+**For Mobile_OCR_Auto (Automatic):**
 - Modern web browser (Chrome, Firefox, Safari, Edge)
+- Internet connection (first load only, for Tesseract.js)
 - Camera access for mobile devices
+- **Optional**: Python 3.7+ and Tesseract OCR for backend
+
+**For Mobile_OCR_Manual:**
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Camera access for mobile devices (optional)
+- No other dependencies required!
 
 ### Installation
 
-1. **Clone or download the project**
+#### Option 1: Mobile_OCR_Manual (Simplest - No Setup)
 
-    ```powershell
-    cd c:\_MainWorkspace\Projects\_Mobile_Invoice_OCR\Startup_Pkg
-    ```
+1. **Navigate to the package directory**
+   ```bash
+   cd Mobile_OCR_Manual
+   ```
+
+2. **Open in browser**
+   - Simply open `Index.html` in your browser
+   - No installation or setup required!
+   - Works completely offline
+
+#### Option 2: Mobile_OCR_Auto (Client-Side Only)
+
+1. **Navigate to the package directory**
+   ```bash
+   cd Mobile_OCR_Auto
+   ```
+
+2. **Open in browser**
+   - Open `Index.html` in your browser
+   - Tesseract.js loads automatically from CDN
+   - Internet required for first load only
+
+#### Option 3: Mobile_OCR_Auto (With Python Backend)
+
+1. **Navigate to the package directory**
+   ```bash
+   cd Mobile_OCR_Auto
+   ```
 
 2. **Install Python dependencies**
-
-    ```powershell
-    pip install flask flask-cors pillow pytesseract
-    ```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3. **Install Tesseract OCR**
    - **Windows**: Download from <https://github.com/UB-Mannheim/tesseract/wiki>
@@ -96,10 +150,9 @@ Interactive spreadsheet-style table with 9 columns:
    - **Linux**: `sudo apt-get install tesseract-ocr`
 
 4. **Start the server**
-
-    ```powershell
-    python Server.py
-    ```
+   ```bash
+   python Server.py
+   ```
 
 5. **Access the application**
    - Local: Open <http://localhost:5000> in your browser

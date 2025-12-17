@@ -97,9 +97,10 @@ Interactive spreadsheet-style table with 9 columns:
 
 **For Mobile_OCR_Auto (Automatic):**
 - Modern web browser (Chrome, Firefox, Safari, Edge)
-- Internet connection (first load only, for Tesseract.js)
+- Internet connection (first load only - Tesseract.js library cached by browser afterward)
 - Camera access for mobile devices
 - **Optional**: Python 3.7+ and Tesseract OCR for backend
+- **Note**: After first load, Tesseract.js is cached and works offline
 
 **For Mobile_OCR_Manual:**
 - Modern web browser (Chrome, Firefox, Safari, Edge)

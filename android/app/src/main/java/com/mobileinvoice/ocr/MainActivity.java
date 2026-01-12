@@ -138,16 +138,22 @@ public class MainActivity extends AppCompatActivity implements InvoiceAdapter.On
                     
                     // Create invoice from OCR result
                     Invoice invoice = new Invoice();
-                    invoice.setInvoiceNumber(result.invoiceNumber.isEmpty() ? 
-                        "INV-" + String.format("%06d", invoices.size() + 1) : result.invoiceNumber);
+                    boolean hasInvoiceNumber = result.invoiceNumber != null
+                        && !result.invoiceNumber.trim().isEmpty()
+                        && !result.invoiceNumber.equalsIgnoreCase("No invoice number");
+                    invoice.setInvoiceNumber(hasInvoiceNumber
+                        ? result.invoiceNumber.trim()
+                        : "INV-" + String.format("%06d", invoices.size() + 1));
                     invoice.setCustomerName(result.customerName.isEmpty() ? 
                         "Unknown Customer" : result.customerName);
                     invoice.setAddress(result.address.isEmpty() ? 
                         "No address found" : result.address);
                     invoice.setPhone(result.phone.isEmpty() ? 
                         "No phone" : result.phone);
-                    invoice.setItems(result.items.isEmpty() ? 
-                        "No items detected" : result.items);
+                    boolean hasItems = result.items != null
+                        && !result.items.trim().isEmpty()
+                        && !result.items.equalsIgnoreCase("No items detected");
+                    invoice.setItems(hasItems ? result.items.trim() : "");
                     invoice.setRawOcrText(result.rawText);
                     invoice.setOriginalImagePath(imageUri.toString());
                     invoice.setTimestamp(System.currentTimeMillis());

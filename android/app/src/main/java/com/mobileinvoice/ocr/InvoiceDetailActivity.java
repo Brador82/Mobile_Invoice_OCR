@@ -134,7 +134,7 @@ public class InvoiceDetailActivity extends AppCompatActivity {
                         
                         // Load items
                         if (currentInvoice.getItems() != null && !currentInvoice.getItems().isEmpty()) {
-                            selectedItems = new ArrayList<>(Arrays.asList(currentInvoice.getItems().split(",")));
+                            selectedItems = new ArrayList<>(Arrays.asList(currentInvoice.getItems().split("\\s*,\\s*")));
                             updateSelectedItemsDisplay();
                         }
                         

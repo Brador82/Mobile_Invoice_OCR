@@ -35,10 +35,11 @@ public class OCRProcessorMLKit {
         Pattern.CASE_INSENSITIVE
     );
     
-    // Pattern for invoice number that appears near/after "INVOICE" header
-    // Format like: KY12345-1234567-2345 or CA2163AMJBF
+    // Pattern for invoice number that appears near/after "INVOICE" header.
+    // Real examples seen: KY112205, JNW112201 (2-3 letters + 6+ digits)
+    // Also allow longer alphanumerics as fallback.
     private static final Pattern HEADER_INVOICE_PATTERN = Pattern.compile(
-        "\\b([A-Z]{2}\\d{4}[A-Z0-9]+|\\d{5,}[-\\d]+)\\b"
+        "\\b([A-Z]{2,3}\\d{6,}|[A-Z0-9]{8,})\\b"
     );
     
     private static final Pattern ZIP_PATTERN = Pattern.compile(
@@ -148,7 +149,7 @@ public class OCRProcessorMLKit {
         
         // Collect all lines from all text blocks WITH POSITION DATA
         List<String> allLines = new ArrayList<>();
-        List<TextBlock> positionedBlocks = new ArrayList<>();
+        List<RecognizedLine> recognizedLines = new ArrayList<>();
         
         for (Text.TextBlock block : text.getTextBlocks()) {
             for (Text.Line line : block.getLines()) {
@@ -157,14 +158,9 @@ public class OCRProcessorMLKit {
                     allLines.add(lineText);
                     fullText.append(lineText).append("\n");
                     
-                    // Store position for top-right detection
                     android.graphics.Rect bounds = line.getBoundingBox();
                     if (bounds != null) {
-                        positionedBlocks.add(new TextBlock(
-                            lineText, 
-                            bounds.top, 
-                            bounds.left
-                        ));
+                        recognizedLines.add(new RecognizedLine(lineText, bounds));
                     }
                 }
             }
@@ -174,10 +170,13 @@ public class OCRProcessorMLKit {
         Log.d(TAG, "Extracted " + allLines.size() + " lines from image");
         
         // Extract invoice number from top-right corner (primary reference)
-        result.invoiceNumber = extractTopRightInvoiceNumber(positionedBlocks);
-        
-        // Extract items being delivered
-        result.items = extractDeliveredItems(allLines);
+        result.invoiceNumber = extractInvoiceNumberNearInvoiceHeader(recognizedLines);
+
+        // Extract items being delivered (prefer table parsing)
+        result.items = extractDeliveredItemsFromTable(recognizedLines);
+        if (result.items == null || result.items.trim().isEmpty() || result.items.equalsIgnoreCase("No items detected")) {
+            result.items = extractDeliveredItems(allLines);
+        }
         
         // Find "BILL TO:" line
         int billToIndex = -1;
@@ -258,76 +257,217 @@ public class OCRProcessorMLKit {
     
     /**
      * Extract invoice number from top-right corner (primary company reference)
-     * Looks for number patterns near "INVOICE" header in top-right position
+     * Uses geometry: locate the "INVOICE" header in the top-right quadrant,
+     * then pick the closest matching line directly beneath it.
      */
-    private String extractTopRightInvoiceNumber(List<TextBlock> blocks) {
-        if (blocks.isEmpty()) return "";
-        
-        // Find the rightmost position to identify top-right area
-        int maxLeft = 0;
-        for (TextBlock block : blocks) {
-            if (block.left > maxLeft) maxLeft = block.left;
+    private String extractInvoiceNumberNearInvoiceHeader(List<RecognizedLine> lines) {
+        if (lines.isEmpty()) return "";
+
+        // Find bounds to estimate top-right quadrant thresholds
+        int minTop = Integer.MAX_VALUE;
+        int maxRight = 0;
+        for (RecognizedLine line : lines) {
+            minTop = Math.min(minTop, line.bounds.top);
+            maxRight = Math.max(maxRight, line.bounds.right);
         }
-        
-        // Top-right is roughly right 40% and top 30% of image
-        int rightThreshold = (int)(maxLeft * 0.6);
-        int topThreshold = Integer.MAX_VALUE;
-        for (TextBlock block : blocks) {
-            if (block.top < topThreshold) topThreshold = block.top;
-        }
-        topThreshold = (int)(topThreshold + (topThreshold * 0.3));
-        
-        String invoiceNumber = "";
-        boolean foundInvoiceHeader = false;
-        
-        // First pass: find "INVOICE" text in top-right
-        for (TextBlock block : blocks) {
-            if (block.left >= rightThreshold && block.top <= topThreshold) {
-                if (block.text.toUpperCase().contains("INVOICE")) {
-                    foundInvoiceHeader = true;
-                    Log.d(TAG, "Found INVOICE header at position (" + block.left + ", " + block.top + ")");
+
+        int rightThreshold = (int) (maxRight * 0.60);
+        int topThreshold = minTop + (int) ((getMaxBottom(lines) - minTop) * 0.30);
+
+        RecognizedLine invoiceHeader = null;
+        for (RecognizedLine line : lines) {
+            if (line.bounds.right >= rightThreshold && line.bounds.top <= topThreshold) {
+                String upper = line.text.toUpperCase();
+                if (upper.equals("INVOICE") || upper.contains("INVOICE")) {
+                    invoiceHeader = line;
+                    Log.d(TAG, "Found INVOICE header at bounds " + invoiceHeader.bounds);
                     break;
                 }
             }
         }
-        
-        // Second pass: extract number patterns near INVOICE header
-        if (foundInvoiceHeader) {
-            for (TextBlock block : blocks) {
-                if (block.left >= rightThreshold && block.top <= topThreshold) {
-                    // Look for invoice number patterns
-                    Matcher matcher = HEADER_INVOICE_PATTERN.matcher(block.text);
-                    if (matcher.find()) {
-                        invoiceNumber = matcher.group(1);
-                        Log.d(TAG, "Extracted TOP-RIGHT invoice number: " + invoiceNumber);
-                        break;
-                    }
-                    
-                    // Also check for alphanumeric strings (like CA2163AMJBF)
-                    if (block.text.matches("[A-Z0-9]{8,}")) {
-                        invoiceNumber = block.text;
-                        Log.d(TAG, "Extracted TOP-RIGHT alphanumeric invoice: " + invoiceNumber);
-                        break;
-                    }
+
+        String best = "";
+        int bestDy = Integer.MAX_VALUE;
+
+        // Primary: closest matching line under INVOICE header in the same x neighborhood
+        if (invoiceHeader != null) {
+            for (RecognizedLine line : lines) {
+                if (line == invoiceHeader) continue;
+                if (line.bounds.top <= invoiceHeader.bounds.bottom) continue;
+                if (line.bounds.right < rightThreshold) continue;
+
+                // Keep roughly under the header (allow some horizontal drift)
+                int dx = Math.abs(line.bounds.centerX() - invoiceHeader.bounds.centerX());
+                if (dx > invoiceHeader.bounds.width() * 2) continue;
+
+                String candidate = findInvoiceCandidateInText(line.text);
+                if (candidate == null) continue;
+
+                int dy = line.bounds.top - invoiceHeader.bounds.bottom;
+                if (dy >= 0 && dy < bestDy) {
+                    bestDy = dy;
+                    best = candidate;
                 }
             }
         }
-        
-        // Fallback: look anywhere in top portion for invoice-like numbers
-        if (invoiceNumber.isEmpty()) {
-            for (TextBlock block : blocks) {
-                if (block.top <= topThreshold) {
-                    Matcher matcher = HEADER_INVOICE_PATTERN.matcher(block.text);
-                    if (matcher.find() && matcher.group(1).length() >= 8) {
-                        invoiceNumber = matcher.group(1);
-                        Log.d(TAG, "Fallback: Found invoice number in top area: " + invoiceNumber);
-                        break;
-                    }
+
+        if (!best.isEmpty()) {
+            Log.d(TAG, "Extracted invoice number near header: " + best);
+            return best;
+        }
+
+        // Fallback: scan top band for plausible invoice codes
+        for (RecognizedLine line : lines) {
+            if (line.bounds.top <= topThreshold) {
+                String candidate = findInvoiceCandidateInText(line.text);
+                if (candidate != null) {
+                    Log.d(TAG, "Fallback invoice candidate in top band: " + candidate);
+                    return candidate;
                 }
             }
         }
-        
-        return invoiceNumber;
+
+        return "";
+    }
+
+    private int getMaxBottom(List<RecognizedLine> lines) {
+        int max = 0;
+        for (RecognizedLine line : lines) {
+            max = Math.max(max, line.bounds.bottom);
+        }
+        return max;
+    }
+
+    private String findInvoiceCandidateInText(String text) {
+        if (text == null) return null;
+        String cleaned = text.trim();
+        if (cleaned.isEmpty()) return null;
+
+        Matcher matcher = HEADER_INVOICE_PATTERN.matcher(cleaned.toUpperCase());
+        if (matcher.find()) {
+            String candidate = matcher.group(1);
+            // Avoid obvious date/time fragments
+            if (candidate.contains(":") || candidate.contains("/")) {
+                return null;
+            }
+            return candidate;
+        }
+        return null;
+    }
+
+    /**
+     * Extract item types from the invoice table by using header/column positions.
+     * Goal: reliably extract rows like "Refrigerator", "Washer", "Dryer" from
+     * the "# Type Model ..." section without being confused by "Term/Warranty" lines.
+     */
+    private String extractDeliveredItemsFromTable(List<RecognizedLine> lines) {
+        if (lines.isEmpty()) return "No items detected";
+
+        RecognizedLine typeHeader = null;
+        RecognizedLine modelHeader = null;
+        int tableTop = -1;
+        int tableBottom = Integer.MAX_VALUE;
+
+        // Find header row containing Type/Model/Price
+        for (RecognizedLine line : lines) {
+            String upper = line.text.toUpperCase();
+            if (upper.contains("TYPE") && upper.contains("MODEL") && (upper.contains("PRICE") || upper.contains("SERIAL"))) {
+                tableTop = line.bounds.bottom;
+                Log.d(TAG, "Detected items table header row: " + line.text);
+                break;
+            }
+        }
+
+        // Alternate header detection when ML Kit splits header into multiple lines
+        for (RecognizedLine line : lines) {
+            String upper = line.text.toUpperCase();
+            if (upper.equals("TYPE")) typeHeader = line;
+            if (upper.equals("MODEL")) modelHeader = line;
+        }
+        if (tableTop < 0 && typeHeader != null && modelHeader != null) {
+            tableTop = Math.max(typeHeader.bounds.bottom, modelHeader.bounds.bottom);
+            Log.d(TAG, "Detected split header anchors for items table");
+        }
+
+        if (tableTop < 0) return "No items detected";
+
+        // Detect footer markers to stop table scanning
+        for (RecognizedLine line : lines) {
+            String upper = line.text.toUpperCase();
+            if (upper.contains("OTHER SERVICES") || upper.contains("TAX RATE") || upper.contains("SUBTOTAL") || upper.contains("TOTAL")) {
+                tableBottom = Math.min(tableBottom, line.bounds.top);
+            }
+        }
+
+        // Column bounds: from type header to model header; if missing, infer using overall width.
+        int minLeft = Integer.MAX_VALUE;
+        int maxRight = 0;
+        for (RecognizedLine line : lines) {
+            minLeft = Math.min(minLeft, line.bounds.left);
+            maxRight = Math.max(maxRight, line.bounds.right);
+        }
+
+        int typeLeft = (typeHeader != null) ? typeHeader.bounds.left : minLeft;
+        int modelLeft = (modelHeader != null) ? modelHeader.bounds.left : (int) (minLeft + (maxRight - minLeft) * 0.35);
+        int typeRight = Math.max(modelLeft - 5, typeLeft + 1);
+
+        List<String> items = new ArrayList<>();
+
+        for (RecognizedLine line : lines) {
+            if (line.bounds.top < tableTop) continue;
+            if (line.bounds.top >= tableBottom) continue;
+
+            // Skip warranty/term/detail lines
+            String upper = line.text.toUpperCase();
+            if (upper.contains("WARRANTY") || upper.startsWith("TERM") || upper.startsWith("WARRANTY")) {
+                continue;
+            }
+
+            // Prefer lines that sit in the "Type" column
+            int cx = line.bounds.centerX();
+            if (cx < typeLeft || cx > typeRight) {
+                continue;
+            }
+
+            String normalized = normalizeItemType(line.text);
+            if (normalized == null) continue;
+
+            // De-dup
+            boolean exists = false;
+            for (String existing : items) {
+                if (existing.equalsIgnoreCase(normalized)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (exists) continue;
+
+            items.add(normalized);
+            Log.d(TAG, "Parsed item type from table: " + normalized);
+        }
+
+        return items.isEmpty() ? "No items detected" : String.join(", ", items);
+    }
+
+    private String normalizeItemType(String raw) {
+        if (raw == null) return null;
+        String upper = raw.trim().toUpperCase();
+        if (upper.isEmpty()) return null;
+        if (upper.matches("^[#\\d]+$")) return null;
+        if (upper.contains("TYPE") || upper.contains("MODEL") || upper.contains("PRICE") || upper.contains("SERIAL")) return null;
+
+        // Map common variants to the app's AVAILABLE_ITEMS
+        if (upper.contains("REFRIGERATOR") || upper.contains("FRIDGE")) return "Refrigerator";
+        if (upper.contains("WASHER")) return "Washer";
+        if (upper.contains("DRYER")) return "Dryer";
+        if (upper.contains("DISHWASHER")) return "Dishwasher";
+        if (upper.contains("FREEZER")) return "Freezer";
+        if (upper.contains("MICROWAVE")) return "Microwave";
+        if (upper.contains("STOVE")) return "Stove";
+        if (upper.contains("RANGE")) return "Range";
+        if (upper.contains("OVEN")) return "Oven";
+
+        return null;
     }
     
     /**
@@ -440,18 +580,13 @@ public class OCRProcessorMLKit {
         return result;
     }
     
-    /**
-     * Simple class to hold text block with position
-     */
-    private static class TextBlock {
-        String text;
-        int top;
-        int left;
-        
-        TextBlock(String text, int top, int left) {
+    private static class RecognizedLine {
+        final String text;
+        final android.graphics.Rect bounds;
+
+        RecognizedLine(String text, android.graphics.Rect bounds) {
             this.text = text;
-            this.top = top;
-            this.left = left;
+            this.bounds = bounds;
         }
     }
     

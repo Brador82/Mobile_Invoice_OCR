@@ -192,13 +192,52 @@
                             android:text="@string/export_csv" />
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnExportExcel"
+                            android:id="@+id/btnExportMarkdown"
                             style="@style/ButtonStyle"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="@string/export_excel" />
+                            android:text="Export as Markdown" />
                     </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Route Optimization Section -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/CardStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="🗺️ Route Optimization"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:paddingBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Calculate the most efficient delivery route"
+                        android:textSize="14sp"
+                        android:textColor="@color/medium_gray"
+                        android:paddingBottom="16dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOptimizeRoute"
+                        style="@style/ButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="🚚 Optimize Delivery Route"
+                        android:backgroundTint="#FF9800"
+                        app:icon="@android:drawable/ic_dialog_map" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

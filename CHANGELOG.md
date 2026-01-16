@@ -5,6 +5,64 @@ All notable changes to Mobile Invoice OCR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-15
+
+### Fixed
+- 🐛 **Data Persistence**: POD photos and signatures now persist across screen changes
+  - Added auto-save in onPause() and onBackPressed()
+  - Fixed onDelete to reload from database instead of manual list manipulation
+- 🐛 **POD Slot Assignment**: Single photo now saves to correct slot instead of all 3
+  - Smart assignment to first empty slot (pod1 → pod2 → pod3)
+  - Fixed loading logic to display each photo in correct ImageView
+- 🐛 **OCR Quality**: Enhanced extraction patterns for cleaner data
+  - Better filtering of warranty/terms text
+  - Stricter length validation (3-30 chars)
+  - Improved customer name cleaning (removes slashes, IDs)
+
+### Added
+- ✨ **Auto-Save Functionality**: Data automatically saves when navigating away
+  - No more "forgot to save" lost data
+  - Silent background save without UI interruption
+- ✨ **POD Photo Management**: Long-press thumbnails for options
+  - View Full Size (opens in system image viewer)
+  - Replace Photo (clears slot and reopens camera)
+  - Delete Photo (removes and cleans up file)
+- ✨ **Smart POD Button**: Text updates based on photo count
+  - "Add POD Photo" (0 photos)
+  - "Add POD Photo 2" (1 photo)
+  - "Add POD Photo 3" (2 photos)
+  - "3 Photos Captured" (all slots full)
+- ✨ **Downloads Folder Export**: All exports now save to Downloads/MobileInvoiceOCR/
+  - Easy to find in file manager
+  - Accessible by all cloud service apps
+- ✨ **Post-Export Cleanup**: Dialog prompts to clear data after export
+  - "Clear All Data" - Resets app for next batch
+  - "Keep Data" - Retains for review or re-export
+  - Confirmation dialog prevents accidental deletion
+- ✨ **Cloud Integration**: Share dialog opens automatically after export
+  - Direct upload to Google Drive, Dropbox, OneDrive
+  - Email or messaging app sharing
+  - Any installed file-sharing app
+
+### Changed
+- 📝 **Timestamped Filenames**: Human-readable format (invoices_20260115_143022.md)
+- 📝 **Phone Normalization**: Consistent (XXX) XXX-XXXX format
+- 📝 **Address Cleaning**: Normalized whitespace in addresses
+- 📝 **Export Location Messages**: Show full path "Downloads/MobileInvoiceOCR/filename"
+
+## [1.1.0] - 2026-01-15 (Morning)
+
+### Added
+- ✨ **Route Optimization**: Google Maps integration with TSP algorithm
+  - Nearest Neighbor algorithm for optimal delivery sequence
+  - Total distance and time estimation
+  - Visual route display with markers and polylines
+  - Turn-by-turn navigation launch
+- ✨ **Drag-and-Drop Reordering**: Manual invoice list reordering
+  - Long-press to drag cards
+  - Visual feedback during drag
+  - onOrderChanged callback for persistence
+
 ## [1.0.0] - 2026-01-11
 
 ### Added

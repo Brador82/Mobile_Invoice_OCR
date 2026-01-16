@@ -52,7 +52,7 @@ The Android SDK contains tools to build Android apps. We're installing the **com
 
 **2.1 Create a folder for Android SDK**
 ```bash
-mkdir -p ~/android-sdk/cmdline-tools
+cd
 ```
 - **mkdir** = "make directory" (create folder)
 - **-p** = create parent folders if they don't exist
@@ -77,7 +77,7 @@ wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_lat
 
 **2.4 Extract (unzip) the downloaded file**
 ```bash
-unzip commandlinetools-linux-*.zip
+
 ```
 - **What this does:** Extracts the contents of the zip file
 - The `*` is a wildcard meaning "match any characters"

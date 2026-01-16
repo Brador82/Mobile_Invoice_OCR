@@ -14,9 +14,12 @@
 - 💾 **Persistent Storage** - Room database with full CRUD operations
 - ✍️ **Signature Capture** - Digital signature pad
 - 📦 **Items Selection** - Multi-select for 10 appliance types
-- 🚚 **POD Photos** - Proof of delivery capture
-- 📤 **Export** - CSV, Excel (TSV), and JSON formats
-- 🔄 **Data Persistence** - Survives app restart and device reboot
+- 🚚 **POD Photos** - Proof of delivery capture (3 photos per invoice)
+- 🗺️ **Route Optimization** - TSP algorithm for most efficient delivery routes
+- 🧭 **Turn-by-Turn Navigation** - Google Maps integration with waypoints
+- � **Drag-and-Drop Reordering** - Long-press and drag to manually reorder invoices
+- 📤 **Export** - CSV, Excel (TSV), JSON, and Markdown formats
+- 💾 **Data Persistence** - Survives app restart and device reboot
 
 ## 🚀 Quick Start
 

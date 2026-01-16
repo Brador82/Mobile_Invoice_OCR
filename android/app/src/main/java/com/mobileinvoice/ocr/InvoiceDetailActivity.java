@@ -10,6 +10,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -27,13 +31,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.mobileinvoice.ocr.OCRProcessorMLKit;
+
 public class InvoiceDetailActivity extends AppCompatActivity {
     private ActivityInvoiceDetailBinding binding;
     private InvoiceDatabase database;
     private Invoice currentInvoice;
     private int invoiceId;
     private String signaturePath;
-    private String podImagePath;
+    private String podImagePath1;
+    private String podImagePath2;
+    private String podImagePath3;
     private List<String> selectedItems = new ArrayList<>();
     
     private ActivityResultLauncher<Intent> signatureLauncher;
@@ -56,6 +64,20 @@ public class InvoiceDetailActivity extends AppCompatActivity {
         setupActivityResultLaunchers();
         loadInvoiceFromDatabase();
         setupClickListeners();
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Auto-save when leaving the screen
+        autoSaveInvoiceData();
+    }
+    
+    @Override
+    public void onBackPressed() {
+        // Auto-save before going back
+        autoSaveInvoiceData();
+        super.onBackPressed();
     }
     
     private void setupActivityResultLaunchers() {
@@ -91,13 +113,33 @@ public class InvoiceDetailActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri imageUri = result.getData().getData();
                     if (imageUri != null) {
-                        // Save the POD image to app's private storage
-                        podImagePath = saveImageToStorage(imageUri, "pod_" + invoiceId + ".jpg");
-                        if (podImagePath != null) {
-                            binding.ivPod.setImageURI(Uri.parse(podImagePath));
-                            binding.ivPod.setVisibility(View.VISIBLE);
-                            binding.btnCapturePOD.setText("Change POD Photo");
-                            Toast.makeText(this, "POD photo captured!", Toast.LENGTH_SHORT).show();
+                        // Determine which POD slot to use (first empty slot)
+                        if (podImagePath1 == null) {
+                            podImagePath1 = saveImageToStorage(imageUri, "pod1_" + invoiceId + ".jpg");
+                            if (podImagePath1 != null) {
+                                binding.ivPod1.setImageURI(Uri.parse(podImagePath1));
+                                binding.ivPod1.setVisibility(View.VISIBLE);
+                                updatePODButtonText();
+                                Toast.makeText(this, "POD photo 1 captured!", Toast.LENGTH_SHORT).show();
+                            }
+                        } else if (podImagePath2 == null) {
+                            podImagePath2 = saveImageToStorage(imageUri, "pod2_" + invoiceId + ".jpg");
+                            if (podImagePath2 != null) {
+                                binding.ivPod2.setImageURI(Uri.parse(podImagePath2));
+                                binding.ivPod2.setVisibility(View.VISIBLE);
+                                updatePODButtonText();
+                                Toast.makeText(this, "POD photo 2 captured!", Toast.LENGTH_SHORT).show();
+                            }
+                        } else if (podImagePath3 == null) {
+                            podImagePath3 = saveImageToStorage(imageUri, "pod3_" + invoiceId + ".jpg");
+                            if (podImagePath3 != null) {
+                                binding.ivPod3.setImageURI(Uri.parse(podImagePath3));
+                                binding.ivPod3.setVisibility(View.VISIBLE);
+                                updatePODButtonText();
+                                Toast.makeText(this, "POD photo 3 captured!", Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            Toast.makeText(this, "Maximum 3 POD photos. Tap a photo to replace it.", Toast.LENGTH_LONG).show();
                         }
                     }
                 }
@@ -134,7 +176,9 @@ public class InvoiceDetailActivity extends AppCompatActivity {
                         
                         // Load items
                         if (currentInvoice.getItems() != null && !currentInvoice.getItems().isEmpty()) {
-                            selectedItems = new ArrayList<>(Arrays.asList(currentInvoice.getItems().split("\\s*,\\s*")));
+                            // Use the improved parsing method
+                            List<String> parsedItems = OCRProcessorMLKit.parseItemsList(currentInvoice.getItems());
+                            selectedItems = new ArrayList<>(parsedItems);
                             updateSelectedItemsDisplay();
                         }
                         
@@ -149,16 +193,32 @@ public class InvoiceDetailActivity extends AppCompatActivity {
                             }
                         }
                         
-                        // Load POD image
-                        if (currentInvoice.getPodImagePath() != null) {
-                            podImagePath = currentInvoice.getPodImagePath();
-                            File podFile = new File(podImagePath);
+                        // Load POD images
+                        if (currentInvoice.getPodImagePath1() != null) {
+                            podImagePath1 = currentInvoice.getPodImagePath1();
+                            File podFile = new File(podImagePath1);
                             if (podFile.exists()) {
-                                binding.ivPod.setImageURI(Uri.fromFile(podFile));
-                                binding.ivPod.setVisibility(View.VISIBLE);
-                                binding.btnCapturePOD.setText("Change POD Photo");
+                                binding.ivPod1.setImageURI(Uri.fromFile(podFile));
+                                binding.ivPod1.setVisibility(View.VISIBLE);
                             }
                         }
+                        if (currentInvoice.getPodImagePath2() != null) {
+                            podImagePath2 = currentInvoice.getPodImagePath2();
+                            File podFile = new File(podImagePath2);
+                            if (podFile.exists()) {
+                                binding.ivPod2.setImageURI(Uri.fromFile(podFile));
+                                binding.ivPod2.setVisibility(View.VISIBLE);
+                            }
+                        }
+                        if (currentInvoice.getPodImagePath3() != null) {
+                            podImagePath3 = currentInvoice.getPodImagePath3();
+                            File podFile = new File(podImagePath3);
+                            if (podFile.exists()) {
+                                binding.ivPod3.setImageURI(Uri.fromFile(podFile));
+                                binding.ivPod3.setVisibility(View.VISIBLE);
+                            }
+                        }
+                        updatePODButtonText();
                     }
                 });
             }).start();
@@ -180,7 +240,43 @@ public class InvoiceDetailActivity extends AppCompatActivity {
             }
         });
         
+        // POD image click listeners - long press to replace
+        binding.ivPod1.setOnLongClickListener(v -> {
+            showPODOptionsDialog(1);
+            return true;
+        });
+        
+        binding.ivPod2.setOnLongClickListener(v -> {
+            showPODOptionsDialog(2);
+            return true;
+        });
+        
+        binding.ivPod3.setOnLongClickListener(v -> {
+            showPODOptionsDialog(3);
+            return true;
+        });
+        
         binding.tvSelectedItems.setOnClickListener(v -> showItemSelectionDialog());
+        
+        // Address navigation hyperlink
+        binding.tvAddressLink.setOnClickListener(v -> {
+            String address = binding.etAddress.getText().toString().trim();
+            if (!address.isEmpty()) {
+                openAddressInMaps(address);
+            } else {
+                Toast.makeText(this, "No address available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Phone call hyperlink
+        binding.tvPhoneLink.setOnClickListener(v -> {
+            String phone = binding.etPhone.getText().toString().trim();
+            if (!phone.isEmpty()) {
+                openPhoneDialer(phone);
+            } else {
+                Toast.makeText(this, "No phone number available", Toast.LENGTH_SHORT).show();
+            }
+        });
         
         binding.btnSave.setOnClickListener(v -> saveInvoiceData());
     }
@@ -191,35 +287,250 @@ public class InvoiceDetailActivity extends AppCompatActivity {
     }
     
     private void showItemSelectionDialog() {
-        boolean[] checkedItems = new boolean[AVAILABLE_ITEMS.length];
-        
-        // Pre-select items that are already selected
-        for (int i = 0; i < AVAILABLE_ITEMS.length; i++) {
-            checkedItems[i] = selectedItems.contains(AVAILABLE_ITEMS[i]);
+        // Create a custom dialog with better item management
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Delivered Items");
+
+        // Create a scrollable layout for items
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(32, 16, 32, 16);
+
+        // Add current items section
+        if (!selectedItems.isEmpty()) {
+            TextView currentHeader = new TextView(this);
+            currentHeader.setText("Currently Selected Items:");
+            currentHeader.setTextSize(16);
+            currentHeader.setTextColor(getResources().getColor(android.R.color.primary_text_light));
+            currentHeader.setPadding(0, 0, 0, 16);
+            layout.addView(currentHeader);
+
+            for (String item : selectedItems) {
+                TextView itemView = new TextView(this);
+                itemView.setText("• " + item);
+                itemView.setTextSize(14);
+                itemView.setPadding(16, 8, 16, 8);
+                itemView.setBackgroundResource(android.R.drawable.editbox_background);
+                itemView.setClickable(true);
+                itemView.setOnClickListener(v -> {
+                    selectedItems.remove(item);
+                    updateSelectedItemsDisplay();
+                    Toast.makeText(this, item + " removed", Toast.LENGTH_SHORT).show();
+                    // Refresh dialog
+                    showItemSelectionDialog();
+                });
+                layout.addView(itemView);
+            }
+
+            // Add divider
+            View divider = new View(this);
+            divider.setBackgroundColor(getResources().getColor(android.R.color.darker_gray));
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1);
+            dividerParams.setMargins(0, 16, 0, 16);
+            divider.setLayoutParams(dividerParams);
+            layout.addView(divider);
         }
-        
-        new AlertDialog.Builder(this)
-            .setTitle("Select Items")
-            .setMultiChoiceItems(AVAILABLE_ITEMS, checkedItems, (dialog, which, isChecked) -> {
-                if (isChecked) {
-                    if (!selectedItems.contains(AVAILABLE_ITEMS[which])) {
-                        selectedItems.add(AVAILABLE_ITEMS[which]);
-                    }
-                } else {
-                    selectedItems.remove(AVAILABLE_ITEMS[which]);
-                }
-            })
-            .setPositiveButton("OK", (dialog, which) -> updateSelectedItemsDisplay())
-            .setNegativeButton("Cancel", null)
-            .show();
+
+        // Add available items section
+        TextView availableHeader = new TextView(this);
+        availableHeader.setText("Available Items:");
+        availableHeader.setTextSize(16);
+        availableHeader.setTextColor(getResources().getColor(android.R.color.primary_text_light));
+        availableHeader.setPadding(0, 0, 0, 16);
+        layout.addView(availableHeader);
+
+        for (String availableItem : AVAILABLE_ITEMS) {
+            if (!selectedItems.contains(availableItem)) {
+                TextView itemView = new TextView(this);
+                itemView.setText("+ " + availableItem);
+                itemView.setTextSize(14);
+                itemView.setPadding(16, 8, 16, 8);
+                itemView.setBackgroundResource(android.R.drawable.btn_default);
+                itemView.setClickable(true);
+                itemView.setOnClickListener(v -> {
+                    selectedItems.add(availableItem);
+                    updateSelectedItemsDisplay();
+                    Toast.makeText(this, availableItem + " added", Toast.LENGTH_SHORT).show();
+                    // Refresh dialog
+                    showItemSelectionDialog();
+                });
+                layout.addView(itemView);
+            }
+        }
+
+        scrollView.addView(layout);
+        builder.setView(scrollView);
+
+        builder.setPositiveButton("Done", (dialog, which) -> updateSelectedItemsDisplay());
+        builder.setNegativeButton("Cancel", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
     
     private void updateSelectedItemsDisplay() {
         if (selectedItems.isEmpty()) {
-            binding.tvSelectedItems.setText("Tap to select items");
+            binding.tvSelectedItems.setText("Tap to select delivered items");
+            binding.tvSelectedItems.setTextColor(getResources().getColor(android.R.color.darker_gray));
         } else {
-            binding.tvSelectedItems.setText(String.join(", ", selectedItems));
+            // Sort items for consistent display
+            selectedItems.sort(String::compareToIgnoreCase);
+
+            // Create formatted display with bullet points
+            StringBuilder displayText = new StringBuilder();
+            displayText.append("Delivered Items (").append(selectedItems.size()).append("):\n");
+
+            for (int i = 0; i < selectedItems.size(); i++) {
+                displayText.append("• ").append(selectedItems.get(i));
+                if (i < selectedItems.size() - 1) {
+                    displayText.append("\n");
+                }
+            }
+
+            binding.tvSelectedItems.setText(displayText.toString());
+            binding.tvSelectedItems.setTextColor(getResources().getColor(android.R.color.primary_text_light));
         }
+    }
+    
+    /**
+     * Update POD button text based on how many photos are captured
+     */
+    private void updatePODButtonText() {
+        int podCount = 0;
+        if (podImagePath1 != null) podCount++;
+        if (podImagePath2 != null) podCount++;
+        if (podImagePath3 != null) podCount++;
+        
+        if (podCount == 0) {
+            binding.btnCapturePOD.setText("Add POD Photo");
+        } else if (podCount < 3) {
+            binding.btnCapturePOD.setText("Add POD Photo " + (podCount + 1));
+        } else {
+            binding.btnCapturePOD.setText("3 Photos Captured");
+        }
+    }
+    
+    /**
+     * Show options dialog for POD photo management
+     */
+    private void showPODOptionsDialog(int podNumber) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("POD Photo " + podNumber);
+        builder.setItems(new String[]{"View Full Size", "Replace Photo", "Delete Photo"}, (dialog, which) -> {
+            switch (which) {
+                case 0: // View full size
+                    viewPODFullSize(podNumber);
+                    break;
+                case 1: // Replace photo
+                    replacePODPhoto(podNumber);
+                    break;
+                case 2: // Delete photo
+                    deletePODPhoto(podNumber);
+                    break;
+            }
+        });
+        builder.show();
+    }
+    
+    private void viewPODFullSize(int podNumber) {
+        String podPath = null;
+        if (podNumber == 1) podPath = podImagePath1;
+        else if (podNumber == 2) podPath = podImagePath2;
+        else if (podNumber == 3) podPath = podImagePath3;
+        
+        if (podPath != null) {
+            File podFile = new File(podPath);
+            if (podFile.exists()) {
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                Uri photoUri = androidx.core.content.FileProvider.getUriForFile(
+                    this, 
+                    getPackageName() + ".fileprovider", 
+                    podFile
+                );
+                intent.setDataAndType(photoUri, "image/*");
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(intent);
+            } else {
+                Toast.makeText(this, "Image file not found", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+    
+    private void replacePODPhoto(int podNumber) {
+        // Clear the specific pod slot and open camera
+        if (podNumber == 1) {
+            podImagePath1 = null;
+            binding.ivPod1.setVisibility(View.GONE);
+        } else if (podNumber == 2) {
+            podImagePath2 = null;
+            binding.ivPod2.setVisibility(View.GONE);
+        } else if (podNumber == 3) {
+            podImagePath3 = null;
+            binding.ivPod3.setVisibility(View.GONE);
+        }
+        updatePODButtonText();
+        openPODCamera();
+    }
+    
+    private void deletePODPhoto(int podNumber) {
+        // Delete file and clear slot
+        String podPath = null;
+        if (podNumber == 1) {
+            podPath = podImagePath1;
+            podImagePath1 = null;
+            binding.ivPod1.setVisibility(View.GONE);
+        } else if (podNumber == 2) {
+            podPath = podImagePath2;
+            podImagePath2 = null;
+            binding.ivPod2.setVisibility(View.GONE);
+        } else if (podNumber == 3) {
+            podPath = podImagePath3;
+            podImagePath3 = null;
+            binding.ivPod3.setVisibility(View.GONE);
+        }
+        
+        if (podPath != null) {
+            File podFile = new File(podPath);
+            if (podFile.exists()) {
+                podFile.delete();
+            }
+        }
+        
+        updatePODButtonText();
+        Toast.makeText(this, "POD photo " + podNumber + " deleted", Toast.LENGTH_SHORT).show();
+    }
+    
+    /**
+     * Auto-save invoice data without closing the activity or showing toast
+     * Called on onPause and back press to preserve data
+     */
+    private void autoSaveInvoiceData() {
+        if (currentInvoice == null) return;
+        
+        // Update invoice with current values
+        String invoiceNumber = binding.etInvoiceNumber.getText().toString().trim();
+        String customerName = binding.etCustomerName.getText().toString().trim();
+        String address = binding.etAddress.getText().toString().trim();
+        String phone = binding.etPhone.getText().toString().trim();
+        
+        // Don't validate on auto-save, just save what we have
+        currentInvoice.setInvoiceNumber(invoiceNumber);
+        currentInvoice.setCustomerName(customerName);
+        currentInvoice.setAddress(address);
+        currentInvoice.setPhone(phone);
+        currentInvoice.setNotes(binding.etNotes.getText().toString().trim());
+        currentInvoice.setItems(String.join(",", selectedItems));
+        currentInvoice.setSignatureImagePath(signaturePath);
+        currentInvoice.setPodImagePath1(podImagePath1);
+        currentInvoice.setPodImagePath2(podImagePath2);
+        currentInvoice.setPodImagePath3(podImagePath3);
+        
+        // Save to database in background
+        new Thread(() -> {
+            database.invoiceDao().update(currentInvoice);
+        }).start();
     }
     
     private void saveInvoiceData() {
@@ -254,7 +565,9 @@ public class InvoiceDetailActivity extends AppCompatActivity {
         currentInvoice.setNotes(binding.etNotes.getText().toString().trim());
         currentInvoice.setItems(String.join(",", selectedItems));
         currentInvoice.setSignatureImagePath(signaturePath);
-        currentInvoice.setPodImagePath(podImagePath);
+        currentInvoice.setPodImagePath1(podImagePath1);
+        currentInvoice.setPodImagePath2(podImagePath2);
+        currentInvoice.setPodImagePath3(podImagePath3);
         
         // Save to database
         new Thread(() -> {
@@ -294,6 +607,35 @@ public class InvoiceDetailActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Error saving image", Toast.LENGTH_SHORT).show();
             return null;
+        }
+    }
+    
+    private void openAddressInMaps(String address) {
+        try {
+            Uri gmmIntentUri = Uri.parse("geo:0,0?q=" + Uri.encode(address));
+            Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+            mapIntent.setPackage("com.google.android.apps.maps");
+            if (mapIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(mapIntent);
+            } else {
+                // Fallback to any maps app
+                mapIntent.setPackage(null);
+                startActivity(mapIntent);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Unable to open maps application", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    private void openPhoneDialer(String phone) {
+        try {
+            // Clean phone number for dialing
+            String cleanPhone = phone.replaceAll("[^\\d+]", "");
+            Uri phoneUri = Uri.parse("tel:" + cleanPhone);
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL, phoneUri);
+            startActivity(dialIntent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Unable to open phone dialer", Toast.LENGTH_SHORT).show();
         }
     }
 }

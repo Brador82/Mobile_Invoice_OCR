@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.mobileinvoice.ocr.database.Invoice;
 import com.mobileinvoice.ocr.databinding.ItemInvoiceBinding;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class InvoiceAdapter extends RecyclerView.Adapter<InvoiceAdapter.InvoiceViewHolder> {
@@ -18,6 +19,7 @@ public class InvoiceAdapter extends RecyclerView.Adapter<InvoiceAdapter.InvoiceV
     public interface OnInvoiceClickListener {
         void onViewDetails(Invoice invoice);
         void onDelete(Invoice invoice);
+        void onOrderChanged(List<Invoice> reorderedList);
     }
 
     public InvoiceAdapter(OnInvoiceClickListener listener) {
@@ -27,6 +29,35 @@ public class InvoiceAdapter extends RecyclerView.Adapter<InvoiceAdapter.InvoiceV
     public void setInvoices(List<Invoice> invoices) {
         this.invoices = invoices;
         notifyDataSetChanged();
+    }
+    
+    public List<Invoice> getInvoices() {
+        return invoices;
+    }
+    
+    /**
+     * Move item from one position to another (for drag-and-drop)
+     */
+    public void onItemMove(int fromPosition, int toPosition) {
+        if (fromPosition < toPosition) {
+            for (int i = fromPosition; i < toPosition; i++) {
+                Collections.swap(invoices, i, i + 1);
+            }
+        } else {
+            for (int i = fromPosition; i > toPosition; i--) {
+                Collections.swap(invoices, i, i - 1);
+            }
+        }
+        notifyItemMoved(fromPosition, toPosition);
+    }
+    
+    /**
+     * Called when drag-and-drop is completed
+     */
+    public void onItemMoveComplete() {
+        if (listener != null) {
+            listener.onOrderChanged(new ArrayList<>(invoices));
+        }
     }
 
     @NonNull

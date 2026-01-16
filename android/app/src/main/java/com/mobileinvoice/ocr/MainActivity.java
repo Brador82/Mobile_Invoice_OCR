@@ -11,7 +11,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.mobileinvoice.ocr.database.Invoice;
 import com.mobileinvoice.ocr.database.InvoiceDatabase;
 import com.mobileinvoice.ocr.databinding.ActivityMainBinding;
@@ -179,46 +181,50 @@ public class MainActivity extends AppCompatActivity implements InvoiceAdapter.On
             }).start();
         });
         
-        // Export buttons
+        // Export button - now exports delivery cards
         binding.btnExportCSV.setOnClickListener(v -> {
             if (invoices.isEmpty()) {
                 Toast.makeText(this, "No invoices to export", Toast.LENGTH_SHORT).show();
                 return;
             }
-            
             ExportHelper exportHelper = new ExportHelper(this);
+            exportHelper.setExportCompleteCallback((exportFolder, count) -> {
+                showCleanupDialog(count);
+            });
             new Thread(() -> {
                 List<Invoice> exportInvoices = database.invoiceDao().getAllInvoicesSync();
                 runOnUiThread(() -> {
-                    exportHelper.exportToCSV(exportInvoices);
+                    exportHelper.exportToCardFolders(exportInvoices);
                 });
             }).start();
         });
-        
-        binding.btnExportExcel.setOnClickListener(v -> {
+
+        // Export as Markdown button
+        binding.btnExportMarkdown.setOnClickListener(v -> {
             if (invoices.isEmpty()) {
                 Toast.makeText(this, "No invoices to export", Toast.LENGTH_SHORT).show();
                 return;
             }
-            
-            // Show export options dialog
-            String[] exportOptions = {"Excel (TSV)", "JSON"};
-            new android.app.AlertDialog.Builder(this)
-                .setTitle("Choose Export Format")
-                .setItems(exportOptions, (dialog, which) -> {
-                    ExportHelper exportHelper = new ExportHelper(this);
-                    new Thread(() -> {
-                        List<Invoice> exportInvoices = database.invoiceDao().getAllInvoicesSync();
-                        runOnUiThread(() -> {
-                            if (which == 0) {
-                                exportHelper.exportToExcel(exportInvoices);
-                            } else {
-                                exportHelper.exportToJSON(exportInvoices);
-                            }
-                        });
-                    }).start();
-                })
-                .show();
+            ExportHelper exportHelper = new ExportHelper(this);
+            exportHelper.setExportCompleteCallback((exportFolder, count) -> {
+                showCleanupDialog(count);
+            });
+            new Thread(() -> {
+                List<Invoice> exportInvoices = database.invoiceDao().getAllInvoicesSync();
+                runOnUiThread(() -> {
+                    exportHelper.exportToMarkdown(exportInvoices);
+                });
+            }).start();
+        });
+
+        // Optimize Route button - Launch route optimization activity
+        binding.btnOptimizeRoute.setOnClickListener(v -> {
+            if (invoices.isEmpty()) {
+                Toast.makeText(this, "No deliveries to route. Add invoices first.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent = new Intent(this, RouteMapActivity.class);
+            startActivity(intent);
         });
     }
     
@@ -226,6 +232,36 @@ public class MainActivity extends AppCompatActivity implements InvoiceAdapter.On
         invoiceAdapter = new InvoiceAdapter(this);
         binding.invoiceRecycler.setLayoutManager(new LinearLayoutManager(this));
         binding.invoiceRecycler.setAdapter(invoiceAdapter);
+        
+        // Setup drag-and-drop for reordering
+        ItemMoveCallback itemMoveCallback = new ItemMoveCallback(new ItemMoveCallback.ItemTouchHelperContract() {
+            @Override
+            public void onRowMoved(int fromPosition, int toPosition) {
+                invoiceAdapter.onItemMove(fromPosition, toPosition);
+            }
+            
+            @Override
+            public void onRowSelected(RecyclerView.ViewHolder viewHolder) {
+                // Add visual feedback when dragging starts
+                viewHolder.itemView.setAlpha(0.7f);
+                viewHolder.itemView.setScaleX(1.05f);
+                viewHolder.itemView.setScaleY(1.05f);
+            }
+            
+            @Override
+            public void onRowClear(RecyclerView.ViewHolder viewHolder) {
+                // Remove visual feedback when dragging ends
+                viewHolder.itemView.setAlpha(1.0f);
+                viewHolder.itemView.setScaleX(1.0f);
+                viewHolder.itemView.setScaleY(1.0f);
+                
+                // Notify that order changed
+                invoiceAdapter.onItemMoveComplete();
+            }
+        });
+        
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(itemMoveCallback);
+        itemTouchHelper.attachToRecyclerView(binding.invoiceRecycler);
         
         binding.imagePreviewRecycler.setLayoutManager(
             new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
@@ -298,11 +334,63 @@ public class MainActivity extends AppCompatActivity implements InvoiceAdapter.On
         new Thread(() -> {
             database.invoiceDao().delete(invoice);
             runOnUiThread(() -> {
-                invoices.remove(invoice);
-                invoiceAdapter.setInvoices(invoices);
-                updateRecordCount();
+                // Reload from database to keep UI in sync
+                loadInvoicesFromDatabase();
                 Toast.makeText(this, "Invoice deleted", Toast.LENGTH_SHORT).show();
             });
         }).start();
+    }
+    
+    @Override
+    public void onOrderChanged(List<Invoice> reorderedList) {
+        // Update the main invoices list with new order
+        invoices.clear();
+        invoices.addAll(reorderedList);
+        
+        // Optional: Save order to database (you could add a displayOrder field to Invoice entity)
+        Toast.makeText(this, "Order updated - Long press to drag invoices", Toast.LENGTH_SHORT).show();
+    }
+    
+    /**
+     * Show dialog asking if user wants to clear all data after export
+     */
+    private void showCleanupDialog(int exportedCount) {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Export Complete")
+            .setMessage(exportedCount + " invoices exported successfully to Downloads/MobileInvoiceOCR.\n\nWould you like to clear all data to start fresh?")
+            .setPositiveButton("Clear All Data", (dialog, which) -> {
+                clearAllData();
+            })
+            .setNegativeButton("Keep Data", (dialog, which) -> {
+                Toast.makeText(this, "Data retained. Ready for next export.", Toast.LENGTH_SHORT).show();
+            })
+            .setIcon(android.R.drawable.ic_dialog_info)
+            .show();
+    }
+    
+    /**
+     * Clear all invoice data from database and refresh UI
+     */
+    private void clearAllData() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Confirm Clear All")
+            .setMessage("This will permanently delete all " + invoices.size() + " invoices from the app. Exported data in Downloads will NOT be affected.\n\nAre you sure?")
+            .setPositiveButton("Yes, Clear All", (dialog, which) -> {
+                new Thread(() -> {
+                    // Delete all invoices from database
+                    database.invoiceDao().deleteAll();
+                    
+                    runOnUiThread(() -> {
+                        // Clear UI
+                        invoices.clear();
+                        invoiceAdapter.setInvoices(invoices);
+                        updateRecordCount();
+                        Toast.makeText(this, "All data cleared. Ready for new deliveries!", Toast.LENGTH_LONG).show();
+                    });
+                }).start();
+            })
+            .setNegativeButton("Cancel", null)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show();
     }
 }

@@ -15,7 +15,9 @@ public class Invoice {
     private String address;
     private String phone;
     private String items; // Comma-separated string
-    private String podImagePath;
+    private String podImagePath1;
+    private String podImagePath2;
+    private String podImagePath3;
     private String signatureImagePath;
     private String notes;
     private String originalImagePath;
@@ -33,7 +35,9 @@ public class Invoice {
     public String getAddress() { return address; }
     public String getPhone() { return phone; }
     public String getItems() { return items; }
-    public String getPodImagePath() { return podImagePath; }
+    public String getPodImagePath1() { return podImagePath1; }
+    public String getPodImagePath2() { return podImagePath2; }
+    public String getPodImagePath3() { return podImagePath3; }
     public String getSignatureImagePath() { return signatureImagePath; }
     public String getNotes() { return notes; }
     public String getOriginalImagePath() { return originalImagePath; }
@@ -47,7 +51,9 @@ public class Invoice {
     public void setAddress(String address) { this.address = address; }
     public void setPhone(String phone) { this.phone = phone; }
     public void setItems(String items) { this.items = items; }
-    public void setPodImagePath(String podImagePath) { this.podImagePath = podImagePath; }
+    public void setPodImagePath1(String podImagePath1) { this.podImagePath1 = podImagePath1; }
+    public void setPodImagePath2(String podImagePath2) { this.podImagePath2 = podImagePath2; }
+    public void setPodImagePath3(String podImagePath3) { this.podImagePath3 = podImagePath3; }
     public void setSignatureImagePath(String signatureImagePath) { this.signatureImagePath = signatureImagePath; }
     public void setNotes(String notes) { this.notes = notes; }
     public void setOriginalImagePath(String originalImagePath) { this.originalImagePath = originalImagePath; }

@@ -1,33 +1,117 @@
 # Mobile Invoice OCR - Current Status & Setup
 
-**Last Updated:** January 11, 2026
+**Last Updated:** January 15, 2026 - 14:30
 
-## ✅ What's Working
+## ✅ What's Working (Production Ready)
 
+### Core Functionality
 - **Android App**: Photo capture, upload, displays extracted invoices
-- **On-Device OCR**: Google ML Kit text recognition (95%+ accuracy)
-- **Room Database**: Full persistence with automatic backup
+- **On-Device OCR**: Google ML Kit text recognition with enhanced extraction patterns
+- **Room Database**: Full persistence with auto-save on screen changes
 - **Invoice Management**: Create, Read, Update, Delete (CRUD) operations
-- **Signature Capture**: SignatureView with save to database
-- **POD Photo Capture**: Camera integration with persistent storage
-- **Items Selection**: Multi-select dialog with 10 appliance types
-- **Export Functionality**: CSV, Excel (TSV), and JSON export with file sharing
+- **Auto-Save**: Data persists automatically when navigating away from screens
 - **Data Validation**: Required field validation and error handling
 - **Invoice List**: RecyclerView with cards displaying customer info
+
+### POD & Signature (FIXED - Jan 15)
+- **POD Photo Capture**: 3 independent photo slots with smart assignment
+- **Individual Photo Management**: Long-press to view, replace, or delete each photo
+- **Signature Capture**: SignatureView with save to database
+- **Persistent Storage**: All photos and signatures auto-save and persist across sessions
+
+### Route Optimization
+- **Google Maps Integration**: TSP algorithm for optimal delivery routes
+- **Turn-by-Turn Navigation**: Launches Google Maps with all waypoints
+- **Drag-and-Drop Reordering**: Long-press and drag to manually reorder invoices
+- **Distance Calculation**: Shows total km and estimated travel time
+
+### Export System (ENHANCED - Jan 15)
+- **Downloads Folder Export**: All exports save to Downloads/MobileInvoiceOCR/
+- **Share Integration**: Automatic share dialog for cloud services (Drive, Dropbox, etc.)
+- **Multiple Formats**: Delivery cards (folders), Markdown, Excel/TSV, JSON
+- **Post-Export Cleanup**: Optional "Clear All Data" dialog after successful export
+- **Timestamped Files**: Format: invoices_20260115_143000.md
+
+### Items & Details
+- **Items Selection**: Multi-select dialog with 10 appliance types
+- **Enhanced OCR**: Cleaner extraction with better filtering of warranty/terms text
+- **Phone Normalization**: Consistent (XXX) XXX-XXXX formatting
+- **Address Cleaning**: Normalized whitespace and formatting
 
 ## 🚀 Quick Start
 
 ### Android App Usage
 
-1. Open "Mobile Invoice OCR" app
-2. Tap "UPLOAD" or "CAMERA" to capture invoice
-3. Tap "PROCESS ALL WITH OCR"
-4. View invoices in "Delivery Records"
-5. Tap an invoice to edit details, add POD photo, signature, and items
-6. Save changes - all data persists across app restarts
-7. Export to CSV/Excel/JSON when ready
+1. **Capture Invoice**: Tap "CAMERA" to photograph invoice
+2. **Process OCR**: Tap "PROCESS ALL WITH OCR" - extracts customer data
+3. **View Details**: Tap invoice card to open detail screen
+4. **Add POD Photos**: Tap "Add POD Photo" (up to 3 photos) - long-press to manage
+5. **Capture Signature**: Tap "Add Signature" for customer sign-off
+6. **Select Items**: Tap items field to choose delivered appliances
+7. **Auto-Save**: Navigate away - all data saves automatically
+8. **Optimize Route**: Tap "Optimize Delivery Route" for best sequence
+9. **Export**: Tap "Export Delivery Cards" → Share to cloud → "Clear All Data" option
 
-## ✨ New Features (January 11, 2026)
+### Current Workflow (End-to-End)
+```
+Morning:
+├─ Review previous data or start fresh
+└─ Open app on mobile device
+
+At Each Delivery:
+├─ Capture invoice photo
+├─ OCR processes automatically (2-3 seconds)
+├─ Review/edit extracted data
+├─ Add POD photos (3 available)
+├─ Customer signs on signature pad
+├─ Add delivery notes
+└─ Auto-saves on exit
+
+End of Day:
+├─ Optimize route (reviews sequence)
+├─ Export to Downloads/MobileInvoiceOCR/
+├─ Share to Google Drive/Dropbox
+├─ Clear all data for next day
+└─ Exported files remain safe in cloud
+```
+
+## ✨ Recent Updates (January 15, 2026)
+
+### Fixed Issues
+✅ **Data Persistence**: Fixed issue where POD photos and signatures were lost on screen change
+✅ **POD Slot Assignment**: Fixed bug where single photo saved to all 3 slots
+✅ **Database Sync**: onDelete now reloads from database instead of manual list manipulation
+✅ **OCR Quality**: Enhanced extraction patterns to filter out warranty/terms text
+
+### New Features
+🆕 **Auto-Save on Navigation**: onPause() and onBackPressed() automatically save all data
+🆕 **POD Photo Management**: Long-press any photo to view full-size, replace, or delete
+🆕 **Smart Button Text**: "Add POD Photo", "Add Photo 2", "Add Photo 3" based on slots
+🆕 **Downloads Export**: All exports save to accessible Downloads/MobileInvoiceOCR/ folder
+🆕 **Post-Export Cleanup**: Dialog asks "Clear all data?" after successful export
+🆕 **Timestamped Exports**: Human-readable filenames (invoices_20260115_143022.md)
+🆕 **Cloud Integration**: Share dialog opens automatically for Drive/Dropbox/etc.
+
+### Enhanced Features
+⚡ **OCR Extraction Improvements**:
+- Cleaner customer names (removes trailing slashes, IDs)
+- Normalized phone format: (XXX) XXX-XXXX
+- Better address whitespace handling
+- Stricter item filtering (excludes totals, warranty terms)
+- Length validation (3-30 chars for items)
+
+⚡ **POD Functionality**:
+- First empty slot assignment (pod1 → pod2 → pod3)
+- Maximum 3 photos with helpful message
+- Individual ImageView display (ivPod1, ivPod2, ivPod3)
+- FileProvider integration for full-size viewing
+- Delete includes file cleanup
+- **Smooth Animations**: Cards rearrange as you drag
+- **Instant Updates**: Order changes reflected immediately
+- **Manual Adjustments**: Fine-tune route optimization results
+- **No Accidental Changes**: Requires intentional long-press gesture
+
+### Previous Features (January 11, 2026)
 
 ### Persistent Storage
 - **Full Database Integration**: All invoice data saved to Room database

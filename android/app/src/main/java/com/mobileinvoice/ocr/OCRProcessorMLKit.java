@@ -36,20 +36,28 @@ public class OCRProcessorMLKit {
     );
     
     // Pattern for invoice number that appears near/after "INVOICE" header.
-    // Real examples seen: KY112205, JNW112201 (2-3 letters + 6+ digits)
-    // Also allow longer alphanumerics as fallback.
+    // Enhanced pattern to handle various formats:
+    // - KY112205, JNW112201 (2-3 letters + 6+ digits)
+    // - INV-12345, Invoice #12345 (with prefixes)
+    // - 12345678 (pure numeric)
+    // - ABC123DEF (alphanumeric)
     private static final Pattern HEADER_INVOICE_PATTERN = Pattern.compile(
-        "\\b([A-Z]{2,3}\\d{6,}|[A-Z0-9]{8,})\\b"
+        "(?:INVOICE\\s*#?\\s*|INV\\s*#?\\s*|#)\\s*([A-Z0-9]{3,}|\\d{5,})\\b",
+        Pattern.CASE_INSENSITIVE
     );
     
     private static final Pattern ZIP_PATTERN = Pattern.compile(
         "\\b\\d{5}(?:-\\d{4})?\\b"
     );
     
-    // Common appliance keywords for item extraction
+    // Common appliance keywords for item extraction - expanded list
     private static final String[] APPLIANCE_KEYWORDS = {
-        "REFRIGERATOR", "FRIDGE", "WASHER", "DRYER", "DISHWASHER", 
-        "STOVE", "RANGE", "OVEN", "MICROWAVE", "FREEZER"
+        "REFRIGERATOR", "FRIDGE", "REFRIG", "FRZR", "FREEZER",
+        "WASHER", "DRYER", "WASHING MACHINE", "DRYING MACHINE", "LAUNDRY",
+        "DISHWASHER", "DISH WASHER",
+        "RANGE", "STOVE", "COOKTOP", "COOK TOP", "OVEN",
+        "MICROWAVE", "MW",
+        "APPLIANCE", "UNIT"
     };
 
     public OCRProcessorMLKit(Context context) {
@@ -191,15 +199,15 @@ public class OCRProcessorMLKit {
         
         if (billToIndex >= 0 && billToIndex + 3 < allLines.size()) {
             // Next 3 lines after "BILL TO:" are: Name, Address, Phone
-            String nameLine = allLines.get(billToIndex + 1);
-            String addressLine = allLines.get(billToIndex + 2);
-            String phoneLine = allLines.get(billToIndex + 3);
+            String nameLine = allLines.get(billToIndex + 1).trim();
+            String addressLine = allLines.get(billToIndex + 2).trim();
+            String phoneLine = allLines.get(billToIndex + 3).trim();
             
             Log.d(TAG, "Name line: " + nameLine);
             Log.d(TAG, "Address line: " + addressLine);
             Log.d(TAG, "Phone line: " + phoneLine);
             
-            // Extract name (first word(s) before ID or slash)
+            // Extract name - CLEAN: Remove prefixes and ID markers
             if (nameLine.contains("Name:")) {
                 nameLine = nameLine.substring(nameLine.indexOf("Name:") + 5).trim();
             }
@@ -216,21 +224,37 @@ public class OCRProcessorMLKit {
                 }
             }
             
+            // Clean name: remove trailing slashes, numbers, extra whitespace
+            nameLine = nameLine.replaceAll("[/\\\\].*$", "").trim();
+            nameLine = nameLine.replaceAll("\\s+", " ");
             result.customerName = nameLine;
             
-            // Extract address
+            // Extract address - CLEAN: Remove prefix and stop at non-address content
             if (addressLine.contains("Address:")) {
                 addressLine = addressLine.substring(addressLine.indexOf("Address:") + 8).trim();
             }
+            
+            // Stop at email addresses, Serial numbers, pricing, etc.
+            addressLine = cleanAddressLine(addressLine);
+            
+            // Clean address: normalize whitespace
+            addressLine = addressLine.replaceAll("\\s+", " ").trim();
             result.address = addressLine;
             
-            // Extract phone from phone line
+            // Extract phone - CLEAN: Get just the phone number
             if (phoneLine.contains("Phone:")) {
                 phoneLine = phoneLine.substring(phoneLine.indexOf("Phone:") + 6).trim();
             }
             Matcher phoneMatcher = PHONE_PATTERN.matcher(phoneLine);
             if (phoneMatcher.find()) {
-                result.phone = phoneMatcher.group().trim();
+                String phone = phoneMatcher.group().trim();
+                // Normalize phone format: (XXX) XXX-XXXX
+                phone = phone.replaceAll("[^0-9]", "");
+                if (phone.length() == 10) {
+                    phone = "(" + phone.substring(0, 3) + ") " + 
+                           phone.substring(3, 6) + "-" + phone.substring(6);
+                }
+                result.phone = phone;
             }
             
         } else {
@@ -343,15 +367,30 @@ public class OCRProcessorMLKit {
         String cleaned = text.trim();
         if (cleaned.isEmpty()) return null;
 
-        Matcher matcher = HEADER_INVOICE_PATTERN.matcher(cleaned.toUpperCase());
+        // First try the enhanced header pattern
+        Matcher matcher = HEADER_INVOICE_PATTERN.matcher(cleaned);
         if (matcher.find()) {
             String candidate = matcher.group(1);
+            // Clean up the candidate
+            candidate = candidate.replaceAll("^[^A-Z0-9]+|[^A-Z0-9]+$", "");
             // Avoid obvious date/time fragments
-            if (candidate.contains(":") || candidate.contains("/")) {
+            if (candidate.contains(":") || candidate.contains("/") || candidate.length() < 3) {
                 return null;
             }
             return candidate;
         }
+
+        // Fallback: look for standalone invoice-like patterns
+        // Pattern: letters followed by digits, or long alphanumeric strings
+        Pattern fallbackPattern = Pattern.compile("\\b([A-Z]{1,4}\\d{4,}|\\d{6,}| [A-Z0-9]{6,})\\b");
+        matcher = fallbackPattern.matcher(cleaned.toUpperCase());
+        if (matcher.find()) {
+            String candidate = matcher.group(1).trim();
+            if (candidate.length() >= 5 && !candidate.contains(":") && !candidate.contains("/")) {
+                return candidate;
+            }
+        }
+
         return null;
     }
 
@@ -453,21 +492,39 @@ public class OCRProcessorMLKit {
         if (raw == null) return null;
         String upper = raw.trim().toUpperCase();
         if (upper.isEmpty()) return null;
-        if (upper.matches("^[#\\d]+$")) return null;
+        
+        // Filter out: numbers, headers, warranty/terms text
+        if (upper.matches("^[#\\d\\s.,$-]+$")) return null;
         if (upper.contains("TYPE") || upper.contains("MODEL") || upper.contains("PRICE") || upper.contains("SERIAL")) return null;
-
+        if (upper.contains("WARRANTY") || upper.contains("TERM") || upper.contains("CONTRACT") || upper.contains("PROTECTION")) return null;
+        if (upper.contains("TOTAL") || upper.contains("SUBTOTAL") || upper.contains("TAX") || upper.contains("DEPOSIT")) return null;
+        if (upper.length() < 3 || upper.length() > 30) return null; // Reasonable length
+        
         // Map common variants to the app's AVAILABLE_ITEMS
-        if (upper.contains("REFRIGERATOR") || upper.contains("FRIDGE")) return "Refrigerator";
-        if (upper.contains("WASHER")) return "Washer";
-        if (upper.contains("DRYER")) return "Dryer";
-        if (upper.contains("DISHWASHER")) return "Dishwasher";
-        if (upper.contains("FREEZER")) return "Freezer";
-        if (upper.contains("MICROWAVE")) return "Microwave";
-        if (upper.contains("STOVE")) return "Stove";
-        if (upper.contains("RANGE")) return "Range";
-        if (upper.contains("OVEN")) return "Oven";
+        // Refrigerators
+        if (upper.contains("REFRIGERATOR") || upper.contains("FRIDGE") || upper.contains("REFRIG")) return "Refrigerator";
 
-        return null;
+        // Washers and Dryers
+        if (upper.contains("WASHER") && !upper.contains("DISHWASHER")) return "Washer";
+        if (upper.contains("DRYER") || upper.contains("DRYING")) return "Dryer";
+        if (upper.contains("WASHER/DRYER") || upper.contains("WASHER DRYER") || upper.contains("LAUNDRY CENTER")) return "Washer/Dryer";
+
+        // Dishwashers
+        if (upper.contains("DISHWASHER") || upper.contains("DISH WASHER")) return "Dishwasher";
+
+        // Ranges/Stoves
+        if (upper.contains("RANGE") || upper.contains("RNG")) return "Range";
+        if (upper.contains("STOVE") || upper.contains("COOKTOP") || upper.contains("COOK TOP")) return "Stove";
+
+        // Other appliances
+        if (upper.contains("FREEZER") || upper.contains("FRZR")) return "Freezer";
+        if (upper.contains("MICROWAVE") || upper.contains("MW")) return "Microwave";
+        if (upper.contains("OVEN") && !upper.contains("MICROWAVE")) return "Oven";
+
+        // Generic/other - only if explicitly says "Appliance" or "Unit"
+        if (upper.equals("APPLIANCE") || upper.equals("UNIT")) return "Other";
+
+        return null; // Don't include if it doesn't match known appliance types
     }
     
     /**
@@ -503,9 +560,22 @@ public class OCRProcessorMLKit {
                 // Clean and add item if it looks like product description
                 if (line.length() > 3 && !line.matches("^[\\d\\s.$]+$")) {
                     String cleanedItem = line.replaceAll("^\\d+[\\s.)]\\s*", "").trim();
-                    if (!cleanedItem.isEmpty() && cleanedItem.length() > 3) {
-                        items.add(cleanedItem);
-                        Log.d(TAG, "Found item: " + cleanedItem);
+                    if (!cleanedItem.isEmpty() && cleanedItem.length() > 2) {
+                        // Try to normalize the item type
+                        String normalizedItem = normalizeItemType(cleanedItem);
+                        if (normalizedItem != null) {
+                            // Use normalized name
+                            if (!items.contains(normalizedItem)) {
+                                items.add(normalizedItem);
+                                Log.d(TAG, "Found normalized item: " + normalizedItem + " (from: " + cleanedItem + ")");
+                            }
+                        } else if (cleanedItem.length() > 3 && cleanedItem.length() < 50) {
+                            // Use original if it looks reasonable
+                            if (!items.contains(cleanedItem)) {
+                                items.add(cleanedItem);
+                                Log.d(TAG, "Found item: " + cleanedItem);
+                            }
+                        }
                     }
                 }
             }
@@ -513,6 +583,86 @@ public class OCRProcessorMLKit {
         
         // Return comma-separated list
         return items.isEmpty() ? "No items detected" : String.join(", ", items);
+    }
+    
+    /**
+     * Parse and organize extracted items into a clean, deduplicated list
+     * This method takes the raw OCR items string and returns a properly formatted list
+     */
+    public static List<String> parseItemsList(String itemsString) {
+        List<String> parsedItems = new ArrayList<>();
+        
+        if (itemsString == null || itemsString.trim().isEmpty() || 
+            itemsString.equalsIgnoreCase("No items detected")) {
+            return parsedItems;
+        }
+        
+        // Split by common delimiters
+        String[] rawItems = itemsString.split("[,;|\\n]");
+        
+        for (String rawItem : rawItems) {
+            String item = rawItem.trim();
+            if (item.isEmpty()) continue;
+            
+            // Clean up the item
+            item = item.replaceAll("^[-•*]\\s*", ""); // Remove bullets
+            item = item.replaceAll("\\s+", " "); // Normalize spaces
+            item = item.trim();
+            
+            if (item.length() < 2) continue;
+            
+            // Try to normalize to standard appliance names
+            String normalized = normalizeItemTypeForDisplay(item);
+            if (normalized != null && !parsedItems.contains(normalized)) {
+                parsedItems.add(normalized);
+            } else if (!parsedItems.contains(item)) {
+                // Keep original if normalization doesn't apply
+                parsedItems.add(item);
+            }
+        }
+        
+        // Sort for consistent display
+        parsedItems.sort(String::compareToIgnoreCase);
+        
+        return parsedItems;
+    }
+    
+    /**
+     * Normalize item type for display purposes (static version for use in other classes)
+     */
+    public static String normalizeItemTypeForDisplay(String raw) {
+        if (raw == null) return null;
+        String upper = raw.trim().toUpperCase();
+        if (upper.isEmpty()) return null;
+        if (upper.matches("^[#\\d]+$")) return null;
+        if (upper.contains("TYPE") || upper.contains("MODEL") || upper.contains("PRICE") || upper.contains("SERIAL")) return null;
+        if (upper.contains("WARRANTY") || upper.contains("TERM") || upper.contains("CONTRACT")) return null;
+
+        // Map common variants to the app's AVAILABLE_ITEMS
+        // Refrigerators
+        if (upper.contains("REFRIGERATOR") || upper.contains("FRIDGE") || upper.contains("REFRIG")) return "Refrigerator";
+
+        // Washers and Dryers
+        if (upper.contains("WASHER") || upper.contains("WASHING MACHINE")) return "Washer";
+        if (upper.contains("DRYER") || upper.contains("DRYING MACHINE")) return "Dryer";
+        if (upper.contains("WASHER/DRYER") || upper.contains("WASHER DRYER") || upper.contains("LAUNDRY CENTER")) return "Washer/Dryer";
+
+        // Dishwashers
+        if (upper.contains("DISHWASHER") || upper.contains("DISH WASHER")) return "Dishwasher";
+
+        // Ranges/Stoves
+        if (upper.contains("RANGE") || upper.contains("RNG")) return "Range";
+        if (upper.contains("STOVE") || upper.contains("COOKTOP") || upper.contains("COOK TOP")) return "Stove";
+
+        // Other appliances
+        if (upper.contains("FREEZER") || upper.contains("FRZR")) return "Freezer";
+        if (upper.contains("MICROWAVE") || upper.contains("MW")) return "Microwave";
+        if (upper.contains("OVEN")) return "Oven";
+
+        // Generic/other
+        if (upper.contains("APPLIANCE") || upper.contains("UNIT")) return "Other";
+
+        return null;
     }
     
     /**
@@ -588,6 +738,40 @@ public class OCRProcessorMLKit {
             this.text = text;
             this.bounds = bounds;
         }
+    }
+    
+    /**
+     * Clean address line by removing email, pricing, serial numbers, and other non-address content
+     */
+    private String cleanAddressLine(String address) {
+        if (address == null || address.isEmpty()) {
+            return "";
+        }
+        
+        // Find the first occurrence of indicators that address has ended
+        String[] stopIndicators = {
+            "Email:", "@", 
+            "A4L/", "Serial #", "Accessory Fee:", "Other Fee:", 
+            "Products:", "Service:", "Delivery:", "Term:",
+            "Dryer,", "Washer,", // Appliance list indicates address is done
+            "$" // Pricing information
+        };
+        
+        int stopIndex = address.length();
+        for (String indicator : stopIndicators) {
+            int index = address.indexOf(indicator);
+            if (index > 0 && index < stopIndex) {
+                stopIndex = index;
+            }
+        }
+        
+        // Extract only the part before stop indicators
+        address = address.substring(0, stopIndex).trim();
+        
+        // Remove trailing commas or punctuation
+        address = address.replaceAll("[,;]+$", "").trim();
+        
+        return address;
     }
     
     /**

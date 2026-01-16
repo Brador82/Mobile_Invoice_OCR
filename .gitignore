@@ -185,3 +185,34 @@ server_aces.py
 server_aces_pillow.py
 server_test.py
 invoice_template_with_anchors*.json
+
+# ===========================
+# Fresh Repository Cleanup
+# ===========================
+
+# Device logs and build outputs
+android/device_log.txt
+android/device_log_after_install.txt
+android/logs.bat
+android/app/build/
+
+# Workspace files (user-specific)
+*.code-workspace
+Workspace-*.code-workspace
+
+# Build and installation scripts (will be recreated)
+install_and_launch.bat
+android/build-and-install.bat
+
+# Session summaries and temporary docs
+SESSION_SUMMARY_*.md
+CLEANUP_SUMMARY.md
+
+# Test images (can be large)
+tools/*.jpg
+tools/*.png
+tools/*.jpeg
+
+# Desktop.ini files
+desktop.ini
+**/desktop.ini

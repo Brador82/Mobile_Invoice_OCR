@@ -16,7 +16,7 @@
     <string name="notes">Notes</string>
     <string name="delete">Delete</string>
     <string name="view_details">View Details</string>
-    <string name="export_csv">Export as CSV</string>
+    <string name="export_csv">Export Delivery Cards</string>
     <string name="export_excel">Export as Excel</string>
     <string name="processing">Processing...</string>
     <string name="camera_permission_required">Camera permission is required</string>

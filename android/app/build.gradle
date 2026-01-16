@@ -59,6 +59,10 @@ dependencies {
     // Google ML Kit for on-device text recognition
     implementation 'com.google.mlkit:text-recognition:16.0.0'
 
+    // Google Maps SDK for route optimization
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
+
     // Apache POI for Excel export
     implementation 'org.apache.poi:poi:5.2.3'
     implementation 'org.apache.poi:poi-ooxml:5.2.3'

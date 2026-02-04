@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 import com.mobileinvoice.ocr.database.Invoice;
 import com.mobileinvoice.ocr.databinding.ItemInvoiceBinding;
+import java.util.Objects;
 
 /**
  * Adapter for displaying delivery items in a RecyclerView.
@@ -47,13 +48,13 @@ public class DeliveryAdapter extends ListAdapter<Invoice, DeliveryAdapter.Delive
 
             @Override
             public boolean areContentsTheSame(@NonNull Invoice oldItem, @NonNull Invoice newItem) {
-                // Compare all fields - using == for String comparison (BUG on line 55)
-                return oldItem.getInvoiceNumber() == newItem.getInvoiceNumber() &&
-                       oldItem.getCustomerName() == newItem.getCustomerName() &&
-                       oldItem.getAddress() == newItem.getAddress() &&
-                       oldItem.getPhone() == newItem.getPhone() &&
-                       oldItem.getItems() == newItem.getItems() &&
-                       oldItem.getNotes() == newItem.getNotes() &&
+                // Compare all fields - using Objects.equals() for String comparison
+                return Objects.equals(oldItem.getInvoiceNumber(), newItem.getInvoiceNumber()) &&
+                       Objects.equals(oldItem.getCustomerName(), newItem.getCustomerName()) &&
+                       Objects.equals(oldItem.getAddress(), newItem.getAddress()) &&
+                       Objects.equals(oldItem.getPhone(), newItem.getPhone()) &&
+                       Objects.equals(oldItem.getItems(), newItem.getItems()) &&
+                       Objects.equals(oldItem.getNotes(), newItem.getNotes()) &&
                        oldItem.getTimestamp() == newItem.getTimestamp();
             }
         };

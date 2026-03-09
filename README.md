@@ -1,7 +1,3 @@
-> **Note: This project has been superseded by [Mobile Invoice Assistant](https://github.com/Brador82/Mobile-Invoice-Assistant)**, which is the actively maintained version with CI/CD, organized documentation, and ongoing development. This repository is archived for historical reference only.
-
----
-
 # Mobile Invoice OCR
 
 **An Android app for invoice scanning, data extraction, and delivery management.**
